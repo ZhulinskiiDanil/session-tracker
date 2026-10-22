@@ -1,0 +1,60 @@
+{
+	"geode": "5.10.1",
+	"gd": {
+		"win": "2.2081"
+	},
+	"id": "zhulis.session-tracker",
+	"name": "Session Tracker",
+	"version": "v1.0.0",
+	"developer": "Zhulis",
+	"description": "Tracks play sessions, time and attempts per level, with copies merged into one",
+	"repository": "https://github.com/ZhulinskiiDanil/session-tracker",
+	"links": {
+		"source": "https://github.com/ZhulinskiiDanil/session-tracker",
+		"community": "https://discord.gg/duuG4RqJKh"
+	},
+	"issues": {
+		"info": "Report bugs on GitHub or in the Discord server",
+		"url": "https://github.com/ZhulinskiiDanil/session-tracker/issues"
+	},
+	"tags": [
+		"utility",
+		"interface"
+	],
+	"resources": {
+		"sprites": [
+			"resources/sprites/*.png",
+			"resources/sprites/cells/*.png"
+		],
+		"spritesheets": {
+			"Borders": [
+				"resources/sprites/borders/*.png"
+			],
+			"Buttons": [
+				"resources/sprites/buttons/*.png"
+			]
+		}
+	},
+	"settings": {
+		"count-practice": {
+			"type": "bool",
+			"name": "Count practice attempts",
+			"description": "Add practice mode attempts to the attempt totals. They are always saved separately either way.",
+			"default": false
+		},
+		"auto-merge-copies": {
+			"type": "bool",
+			"name": "Merge copies automatically",
+			"description": "Put a copied level in the same group as its original, so their stats add up. Levels you merged or split by hand are never changed.",
+			"default": true
+		},
+		"min-session-seconds": {
+			"type": "int",
+			"name": "Minimum session length",
+			"description": "Sessions shorter than this many seconds of play are not saved.",
+			"default": 10,
+			"min": 0,
+			"max": 600
+		}
+	}
+}
