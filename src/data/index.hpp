@@ -30,6 +30,11 @@ namespace data
     // Still being played, or the game closed before it ended
     bool inProgress = false;
 
+    // Where an imported session came from ("death-tracker"), empty for one recorded here
+    std::string source;
+    // Stable across imports, so importing again updates the session instead of adding it twice
+    std::string importID;
+
     int shownAttempts() const;
   };
 
@@ -79,6 +84,8 @@ namespace data
     std::map<std::string, std::string> m_links;
     // Merged or split by hand: never relinked automatically
     std::set<std::string> m_manual;
+    // Imported links already applied once, as "a|b": a split by hand afterwards stays split
+    std::set<std::string> m_importedLinks;
     bool m_loaded = false;
 
     Storage() = default;
@@ -112,5 +119,10 @@ namespace data
     void merge(std::string const &key, std::string const &target);
     // Takes `key` out of its group, the rest stays together
     void split(std::string const &key);
+
+    // A level known only from an import, created without playing it
+    Level &ensure(std::string const &key, std::string const &name, int levelID, bool local);
+    // Merges two levels the first time this pair is imported, never again after
+    bool linkOnce(std::string const &a, std::string const &b);
   };
 }

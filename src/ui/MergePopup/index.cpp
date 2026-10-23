@@ -9,6 +9,7 @@ using namespace data;
 static constexpr float WIDTH = 360.f;
 static constexpr float HEIGHT = 260.f;
 static constexpr float PADDING = 10.f;
+static constexpr size_t MAX_ROWS = 100;
 
 MergePopup *MergePopup::create(std::string key, geode::Function<void()> onMerged)
 {
@@ -92,14 +93,24 @@ void MergePopup::rebuild()
       levels.push_back(level);
   }
 
+  // Imported sessions come after the ones played here, so the last one isn't always the latest
   auto lastPlayed = [](Level const *level)
-  { return level->sessions.empty() ? 0 : level->sessions.back().end; };
+  {
+    int64_t last = 0;
+    for (auto const &session : level->sessions)
+      last = std::max(last, session.end);
+    return last;
+  };
   std::ranges::sort(levels, [&](auto a, auto b)
                     { return lastPlayed(a) > lastPlayed(b); });
 
   m_list->clear();
   m_list->setEmptyText(query.empty() ? "No other levels played yet" : "Nothing found");
   float width = m_list->innerWidth();
+
+  // A Death Tracker import brings thousands of levels: the most recent ones, the search finds the rest
+  if (levels.size() > MAX_ROWS)
+    levels.resize(MAX_ROWS);
 
   for (auto level : levels)
   {
@@ -112,7 +123,7 @@ void MergePopup::rebuild()
       details += fmt::format(" <small>/ group of</small> {}", groupSize);
     if (!level->sessions.empty())
     {
-      auto last = fmt_time::local(level->sessions.back().end);
+      auto last = fmt_time::local(lastPlayed(level));
       details += fmt::format(" <small>/ last</small> {:02}.{:02}", last.tm_mday, last.tm_mon + 1);
     }
 

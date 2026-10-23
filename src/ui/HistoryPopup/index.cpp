@@ -2,6 +2,7 @@
 
 #include <Geode/ui/GeodeUI.hpp>
 
+#include "../../sync/DeathTracker.hpp"
 #include "../../tracker/index.hpp"
 #include "../MergePopup/index.hpp"
 #include "../components/BarChart.hpp"
@@ -360,19 +361,25 @@ CCNode *HistoryPopup::createTimeChart(std::vector<Session const *> const &sessio
   return BarChart::create(size, "Time <small>per session</small>", legend, bars, ticks, std::nullopt, "No sessions yet");
 }
 
-void HistoryPopup::drawBottomButton(char const *text, geode::Function<void()> callback)
+CCMenuItemSpriteExtra *HistoryPopup::drawBottomButton(char const *text, geode::Function<void()> callback)
 {
-  auto menu = CCMenu::create();
-  menu->ignoreAnchorPointForPosition(false);
-  menu->setAnchorPoint({0.f, .5f});
-  menu->setContentSize({0.f, BOTTOM_BAR});
-  menu->setLayout(RowLayout::create()
-                      ->setGap(5.f)
-                      ->setAutoScale(false)
-                      ->setAutoGrowAxis(0.f)
-                      ->setAxisAlignment(AxisAlignment::Start));
-  menu->setPosition({PADDING, PADDING + BOTTOM_BAR / 2 - 4.f});
-  m_content->addChild(menu);
+  // One row for all of a tab's buttons
+  auto menu = m_content->getChildByID("bottom-menu"_spr);
+  if (!menu)
+  {
+    menu = CCMenu::create();
+    menu->setID("bottom-menu"_spr);
+    menu->ignoreAnchorPointForPosition(false);
+    menu->setAnchorPoint({0.f, .5f});
+    menu->setContentSize({0.f, BOTTOM_BAR});
+    menu->setLayout(RowLayout::create()
+                        ->setGap(5.f)
+                        ->setAutoScale(false)
+                        ->setAutoGrowAxis(0.f)
+                        ->setAxisAlignment(AxisAlignment::Start));
+    menu->setPosition({PADDING, PADDING + BOTTOM_BAR / 2 - 4.f});
+    m_content->addChild(menu);
+  }
 
   auto button = CCMenuItemExt::createSpriteExtra(ButtonSprite::create(text), [callback = std::move(callback)](auto) mutable
                                                  { callback(); });
@@ -381,6 +388,7 @@ void HistoryPopup::drawBottomButton(char const *text, geode::Function<void()> ca
   menu->addChild(button);
 
   menu->updateLayout();
+  return button;
 }
 
 // ! --- Session --- !
@@ -616,7 +624,39 @@ void HistoryPopup::drawLevels()
   drawBottomButton("Merge with...", [this]
                       { onMerge(); });
 
+  // Only where Death Tracker has kept anything
+  if (death_tracker::levelsDir())
+  {
+    auto button = std::make_shared<CCMenuItemSpriteExtra *>(nullptr);
+    *button = drawBottomButton(death_tracker::importing() ? "Importing..." : "Import from Death Tracker", [this, button]
+                               { onImport(*button); });
+  }
+
   fillLevels();
+}
+
+void HistoryPopup::onImport(CCMenuItemSpriteExtra *button)
+{
+  if (death_tracker::importing())
+    return;
+
+  if (button)
+  {
+    static_cast<ButtonSprite *>(button->getNormalImage())->setString("Importing...");
+    button->setEnabled(false);
+    button->getParent()->updateLayout();
+  }
+
+  death_tracker::importAll([self = Ref(this)](death_tracker::ImportResult result)
+                           {
+                             auto text = fmt::format("Imported <cg>{}</c> sessions on <cg>{}</c> levels and <cg>{}</c> links between levels.",
+                                                     result.sessions, result.levels, result.links);
+                             if (result.overlapping > 0)
+                               text += fmt::format("\n<cy>{}</c> sessions were recorded here too and kept as they are.", result.overlapping);
+                             text += "\n\nImporting again only brings in what's new.";
+
+                             FLAlertLayer::create("Death Tracker", text, "OK")->show();
+                             self->drawContent(); });
 }
 
 void HistoryPopup::fillLevels()
@@ -702,16 +742,17 @@ static std::string csvField(std::string const &text)
 
 void HistoryPopup::onExport()
 {
-  std::string csv = "level,level_id,tag,start,end,active_seconds,paused_seconds,attempts,start_pos_attempts,practice_attempts,completions,best\n";
+  std::string csv = "level,level_id,tag,start,end,active_seconds,paused_seconds,attempts,start_pos_attempts,practice_attempts,completions,best,source\n";
 
   for (auto level : shownLevels())
   {
     auto tag = tagFor(level);
     for (auto const &session : level->sessions)
     {
-      csv += fmt::format("{},{},{},{},{},{:.0f},{:.0f},{},{},{},{},{}\n", csvField(level->name), level->levelID, tag,
+      csv += fmt::format("{},{},{},{},{},{:.0f},{:.0f},{},{},{},{},{},{}\n", csvField(level->name), level->levelID, tag,
                          fmt_time::date(session.start), fmt_time::date(session.end), session.activeSeconds, session.pausedSeconds,
-                         session.attempts, session.startPosAttempts, session.practiceAttempts, session.completions, session.best);
+                         session.attempts, session.startPosAttempts, session.practiceAttempts, session.completions, session.best,
+                         session.source.empty() ? "session-tracker" : session.source);
     }
   }
 

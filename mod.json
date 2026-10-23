@@ -5,7 +5,7 @@
 	},
 	"id": "zhulis.session-tracker",
 	"name": "Session Tracker",
-	"version": "v1.0.0",
+	"version": "v1.1.0",
 	"developer": "Zhulis",
 	"description": "Tracks play sessions, time and attempts per level, with copies merged into one",
 	"repository": "https://github.com/ZhulinskiiDanil/session-tracker",

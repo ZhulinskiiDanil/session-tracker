@@ -51,7 +51,7 @@ private:
   void drawCards(std::vector<CCNode *> const &cards, float top);
   CCNode *createDeathsChart(data::Totals const &totals, CCSize size, std::string const &title);
   CCNode *createTimeChart(std::vector<data::Session const *> const &sessions, CCSize size);
-  void drawBottomButton(char const *text, geode::Function<void()> callback);
+  CCMenuItemSpriteExtra *drawBottomButton(char const *text, geode::Function<void()> callback);
 
   void drawSession();
   void drawOverview();
@@ -63,6 +63,7 @@ private:
 
   void onExport();
   void onMerge();
+  void onImport(CCMenuItemSpriteExtra *button);
   void onSplit(std::string const &key, std::string const &name);
 
 public:

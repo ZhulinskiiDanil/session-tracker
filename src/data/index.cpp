@@ -105,6 +105,11 @@ namespace data
     json.set("best", session.best);
     json.set("deaths", deaths);
     json.set("in-progress", session.inProgress);
+    if (!session.source.empty())
+    {
+      json.set("source", session.source);
+      json.set("import-id", session.importID);
+    }
     return json;
   }
 
@@ -121,6 +126,8 @@ namespace data
     session.completions = json.get<int>("completions").unwrapOr(0);
     session.best = json.get<int>("best").unwrapOr(0);
     session.inProgress = json.get<bool>("in-progress").unwrapOr(false);
+    session.source = json.get<std::string>("source").unwrapOr("");
+    session.importID = json.get<std::string>("import-id").unwrapOr("");
 
     if (auto deaths = json.get("deaths"); deaths && deaths.unwrap().isObject())
     {
@@ -250,6 +257,15 @@ namespace data
           m_manual.insert(key.unwrap());
       }
     }
+
+    if (auto imported = json.get("imported-links"); imported && imported.unwrap().isArray())
+    {
+      for (auto const &entry : imported.unwrap())
+      {
+        if (auto pair = entry.asString())
+          m_importedLinks.insert(pair.unwrap());
+      }
+    }
   }
 
   void Storage::save(std::string const &key) const
@@ -272,10 +288,12 @@ namespace data
       links.set(key, root);
 
     std::vector<matjson::Value> manual(m_manual.begin(), m_manual.end());
+    std::vector<matjson::Value> imported(m_importedLinks.begin(), m_importedLinks.end());
 
     auto json = matjson::Value::object();
     json.set("links", links);
     json.set("manual", matjson::Value(std::move(manual)));
+    json.set("imported-links", matjson::Value(std::move(imported)));
 
     (void)file::createDirectoryAll(Mod::get()->getSaveDir());
 
@@ -402,8 +420,14 @@ namespace data
                       {
       if ((a->key == root) != (b->key == root))
         return a->key == root;
+      // Imported sessions are added after the ones played here, the list isn't in order
       auto firstPlayed = [](Level const *level)
-      { return level->sessions.empty() ? INT64_MAX : level->sessions.front().start; };
+      {
+        int64_t first = INT64_MAX;
+        for (auto const &session : level->sessions)
+          first = std::min(first, session.start);
+        return first;
+      };
       return firstPlayed(a) < firstPlayed(b); });
 
     return levels;
@@ -495,5 +519,40 @@ namespace data
     m_manual.insert(key);
 
     saveGroups();
+  }
+
+  // ! --- Imports --- !
+
+  Level &Storage::ensure(std::string const &key, std::string const &name, int levelID, bool local)
+  {
+    auto &level = m_levels[key];
+
+    // What playing the level wrote stays, the import only fills the gaps
+    if (level.key.empty())
+    {
+      level.key = key;
+      level.local = local;
+    }
+    if (level.name.empty())
+      level.name = name;
+    if (level.levelID == 0)
+      level.levelID = levelID;
+
+    return level;
+  }
+
+  bool Storage::linkOnce(std::string const &a, std::string const &b)
+  {
+    auto pair = a < b ? a + "|" + b : b + "|" + a;
+
+    if (a == b || !m_importedLinks.insert(pair).second)
+      return false;
+
+    if (rootOf(a) != rootOf(b))
+      merge(a, b);
+    else
+      saveGroups();
+
+    return true;
   }
 }

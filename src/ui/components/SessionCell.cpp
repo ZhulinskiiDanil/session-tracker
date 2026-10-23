@@ -177,5 +177,10 @@ CCNode *SessionCell::createDetails()
   if (!m_levelText.empty())
     rows.push_back({"Level:", m_levelText});
 
+  // Death Tracker keeps no attempts, they are counted from its deaths and completions
+  if (s.source == "death-tracker")
+    rows.push_back({"Source:", s.importID.ends_with("/earlier") ? "Death Tracker <small>(before its sessions)</small>"
+                                                                : "Death Tracker <small>(attempts from deaths)</small>"});
+
   return MetaTable::create(rows, m_width, 8.f);
 }
